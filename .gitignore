@@ -1,0 +1,29 @@
+# Binary
+alex
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# GoReleaser
+dist/
+
+# Test files
+*.env
+.env.*
