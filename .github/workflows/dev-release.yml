@@ -31,6 +31,7 @@ jobs:
 
       - name: Create dev tag
         run: |
+          git tag -d v0.0.0-dev 2>/dev/null || true
           git tag v0.0.0-dev
           git push origin v0.0.0-dev
 
