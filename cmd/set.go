@@ -15,7 +15,7 @@ import (
 var (
 	setPassphrase bool
 	setHidden     bool
-	setProject    bool
+	setGlobal     bool
 )
 
 var setCmd = &cobra.Command{
@@ -26,14 +26,14 @@ var setCmd = &cobra.Command{
 If VALUE is not provided, you will be prompted to enter it (useful for
 sensitive values you don't want in shell history).
 
-Use --project to store the secret in the current directory's .alex/ folder
-instead of the global ~/.alex/ folder. Project secrets override global secrets.
+Secrets are stored in the current directory's .alex/ folder by default.
+Use --global to store in ~/.alex/ for secrets shared across all projects.
 
 Examples:
   alex set DATABASE_URL "postgres://user:pass@host/db"
-  alex set STRIPE_KEY                    # Will prompt for value
-  alex set --hidden API_KEY              # Hide input while typing
-  alex set --project DATABASE_URL "..."  # Store in project scope`,
+  alex set STRIPE_KEY                  # Will prompt for value
+  alex set --hidden API_KEY            # Hide input while typing
+  alex set --global OPENAI_KEY "..."   # Store globally (shared)`,
 	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
@@ -67,16 +67,16 @@ Examples:
 		var store *secrets.Store
 		var scope string
 
-		if setProject {
+		if setGlobal {
+			store, err = secrets.NewGlobalStore(passphrase)
+			scope = "global"
+		} else {
 			// Ensure .gitignore has .alex/
 			if err := secrets.EnsureGitignore(); err != nil {
 				exitWithError("updating .gitignore", err)
 			}
 			store, err = secrets.NewProjectStore(passphrase)
 			scope = "project"
-		} else {
-			store, err = secrets.NewGlobalStore(passphrase)
-			scope = "global"
 		}
 		if err != nil {
 			exitWithError("opening secret store", err)
@@ -94,7 +94,7 @@ func init() {
 	rootCmd.AddCommand(setCmd)
 	setCmd.Flags().BoolVar(&setPassphrase, "passphrase", false, "Use a passphrase instead of machine ID")
 	setCmd.Flags().BoolVar(&setHidden, "hidden", false, "Hide input when prompting for value")
-	setCmd.Flags().BoolVarP(&setProject, "project", "p", false, "Store in project scope (./.alex/) instead of global")
+	setCmd.Flags().BoolVarP(&setGlobal, "global", "g", false, "Store in global scope (~/.alex/) instead of project")
 }
 
 // readInput reads a line from stdin

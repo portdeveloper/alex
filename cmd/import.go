@@ -13,7 +13,7 @@ import (
 var (
 	importPassphrase bool
 	importPrefix     string
-	importProject    bool
+	importGlobal     bool
 )
 
 var importCmd = &cobra.Command{
@@ -24,11 +24,11 @@ var importCmd = &cobra.Command{
 Parses KEY=VALUE pairs from the file, skipping comments (#) and empty lines.
 Supports quoted values (single and double quotes).
 
-Use --project to import into the current directory's project scope.
+Imports to project scope by default. Use --global to import to global scope.
 
 Examples:
-  alex import .env                    # Import all secrets (global)
-  alex import .env --project          # Import into project scope
+  alex import .env                    # Import to project scope
+  alex import .env --global           # Import to global scope
   alex import .env --prefix DB_       # Only import vars starting with DB_`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -70,16 +70,16 @@ Examples:
 		var store *secrets.Store
 		var scope string
 
-		if importProject {
+		if importGlobal {
+			store, err = secrets.NewGlobalStore(passphrase)
+			scope = "global"
+		} else {
 			// Ensure .gitignore has .alex/
 			if err := secrets.EnsureGitignore(); err != nil {
 				exitWithError("updating .gitignore", err)
 			}
 			store, err = secrets.NewProjectStore(passphrase)
 			scope = "project"
-		} else {
-			store, err = secrets.NewGlobalStore(passphrase)
-			scope = "global"
 		}
 		if err != nil {
 			exitWithError("opening secret store", err)
@@ -114,7 +114,7 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().BoolVar(&importPassphrase, "passphrase", false, "Use a passphrase instead of machine ID")
 	importCmd.Flags().StringVar(&importPrefix, "prefix", "", "Only import variables with this prefix")
-	importCmd.Flags().BoolVarP(&importProject, "project", "p", false, "Import into project scope (./.alex/) instead of global")
+	importCmd.Flags().BoolVarP(&importGlobal, "global", "g", false, "Import into global scope (~/.alex/) instead of project")
 }
 
 // parseEnvFile reads a .env file and returns key-value pairs

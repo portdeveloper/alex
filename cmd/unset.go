@@ -9,7 +9,7 @@ import (
 
 var (
 	unsetPassphrase bool
-	unsetProject    bool
+	unsetGlobal     bool
 )
 
 var unsetCmd = &cobra.Command{
@@ -17,11 +17,11 @@ var unsetCmd = &cobra.Command{
 	Short: "Remove a secret",
 	Long: `Remove a stored secret.
 
-Use --project to remove from the project scope instead of global.
+Removes from project scope by default. Use --global to remove from global scope.
 
 Examples:
   alex unset DATABASE_URL
-  alex unset --project DATABASE_URL  # Remove from project scope`,
+  alex unset --global OPENAI_KEY  # Remove from global scope`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
@@ -34,12 +34,12 @@ Examples:
 		var store *secrets.Store
 		var scope string
 
-		if unsetProject {
-			store, err = secrets.NewProjectStore(passphrase)
-			scope = "project"
-		} else {
+		if unsetGlobal {
 			store, err = secrets.NewGlobalStore(passphrase)
 			scope = "global"
+		} else {
+			store, err = secrets.NewProjectStore(passphrase)
+			scope = "project"
 		}
 		if err != nil {
 			exitWithError("opening secret store", err)
@@ -56,5 +56,5 @@ Examples:
 func init() {
 	rootCmd.AddCommand(unsetCmd)
 	unsetCmd.Flags().BoolVar(&unsetPassphrase, "passphrase", false, "Use a passphrase instead of machine ID")
-	unsetCmd.Flags().BoolVarP(&unsetProject, "project", "p", false, "Remove from project scope (./.alex/) instead of global")
+	unsetCmd.Flags().BoolVarP(&unsetGlobal, "global", "g", false, "Remove from global scope (~/.alex/) instead of project")
 }
