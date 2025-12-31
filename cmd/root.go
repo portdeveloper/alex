@@ -78,8 +78,9 @@ func printQuickStart() {
 
 No secrets stored yet. Here's how to get started:
 
-  1. Store a secret:
+  1. Store a secret (or import from .env):
      alex set DATABASE_URL "postgres://user:pass@host/db"
+     alex import .env
 
   2. Run a command with secrets injected:
      alex run npm start
@@ -90,5 +91,5 @@ No secrets stored yet. Here's how to get started:
 Your secrets are encrypted and stored separately from your shell
 environment, keeping them invisible to AI coding assistants.
 
-Run 'alex --help' for all commands.`)
+Run 'alex help' for all commands.`)
 }

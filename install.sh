@@ -74,6 +74,9 @@ if [ "$IN_PATH" = false ]; then
 fi
 
 echo "Get started:"
-echo "  alex set MY_SECRET \"secret-value\""
-echo "  alex list"
-echo "  alex run your-command"
+echo "  alex set MY_SECRET \"secret-value\"   # Add a secret"
+echo "  alex import .env                      # Or import from .env file"
+echo "  alex list                             # View stored secrets"
+echo "  alex run your-command                 # Run with secrets injected"
+echo ""
+echo "Run 'alex help' for all commands."
