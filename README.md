@@ -61,6 +61,7 @@ cd alex && go build -o alex . && sudo mv alex /usr/local/bin/
 ### Store a secret
 
 ```bash
+# Secrets are stored per-project by default (./.alex/)
 alex set DATABASE_URL "postgres://user:pass@host/db"
 alex set STRIPE_KEY "sk_live_xxxxx"
 
@@ -69,6 +70,9 @@ alex set API_KEY
 
 # Hide input while typing
 alex set --hidden PASSWORD
+
+# Store globally for secrets shared across projects (~/.alex/)
+alex set --global OPENAI_KEY "sk-xxx"
 ```
 
 ### List secrets
@@ -76,13 +80,18 @@ alex set --hidden PASSWORD
 ```bash
 alex list
 
-# Output:
-# NAME                           UPDATED
-# ----                           -------
-# DATABASE_URL                   2 hours ago
-# STRIPE_KEY                     2 hours ago
+# Output shows both project and global secrets:
+# GLOBAL:
+#   NAME                         UPDATED
+#   ----                         -------
+#   OPENAI_KEY                   2 hours ago
 #
-# 2 secret(s) stored
+# PROJECT:
+#   NAME                         UPDATED
+#   ----                         -------
+#   DATABASE_URL                 just now
+#
+# 2 secret(s) stored (1 global, 1 project)
 ```
 
 ### Run a command with secrets
@@ -92,22 +101,29 @@ alex run npm start
 alex run pytest
 alex run cargo run
 alex run docker-compose up
+
+# Output shows which secrets are used:
+# Using 1 global, 1 project secret(s)
 ```
+
+Project secrets override global secrets with the same name.
 
 ### Remove a secret
 
 ```bash
-alex unset DATABASE_URL
+alex unset DATABASE_URL           # Remove from project
+alex unset --global OPENAI_KEY    # Remove from global
 ```
 
 ## Security
 
 ### How It Works
 
-1. Secrets are stored encrypted in `~/.alex/secrets.enc`
+1. Secrets are stored encrypted in `.alex/secrets.enc` (project) or `~/.alex/secrets.enc` (global)
 2. Encryption uses [age](https://age-encryption.org/) with a key derived from your machine ID
-3. When you run `alex run <command>`, secrets are decrypted and injected into the subprocess environment
-4. Your shell never has the secrets - only the subprocess does
+3. When you run `alex run <command>`, both project and global secrets are merged and injected
+4. Project secrets override global secrets with the same name
+5. Your shell never has the secrets - only the subprocess does
 
 ### Suspicious Command Detection
 
@@ -188,6 +204,7 @@ This combination provides:
 
 | Flag | Commands | Description |
 |------|----------|-------------|
+| `--global`, `-g` | set, unset, import | Use global scope (~/.alex/) instead of project |
 | `--passphrase` | all | Use passphrase instead of machine ID |
 | `--hidden` | set | Hide input when prompting |
 | `--prefix` | import | Only import vars with this prefix |
@@ -196,7 +213,7 @@ This combination provides:
 ## Migration from .env
 
 ```bash
-# Import all secrets from .env
+# Import all secrets from .env (into project scope)
 alex import .env
 
 # Or import only specific prefixes
@@ -205,7 +222,7 @@ alex import .env --prefix DB_
 # Verify your app works
 alex run npm start
 
-# Delete .env
+# Delete .env and add .alex/ to .gitignore (done automatically)
 rm .env
 ```
 
