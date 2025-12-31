@@ -16,7 +16,8 @@ var listCmd = &cobra.Command{
 	Short: "List stored secrets (names only)",
 	Long: `List all stored secrets. Only shows names, not values.
 
-Shows both global (~/.alex/) and project (./.alex/) secrets if they exist.
+Shows both global (~/.alex/) and project secrets.
+Project is auto-detected from git root or current directory.
 
 Example:
   alex list`,

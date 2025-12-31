@@ -24,6 +24,9 @@ var runCmd = &cobra.Command{
 The secrets are injected into the command's environment only - they are not
 visible in your shell's environment.
 
+Merges secrets from both global (~/.alex/) and project scopes.
+Project is auto-detected from git root. Project secrets override global.
+
 Use -- to separate alex flags from command arguments.
 
 Examples:

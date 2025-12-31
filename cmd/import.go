@@ -24,7 +24,8 @@ var importCmd = &cobra.Command{
 Parses KEY=VALUE pairs from the file, skipping comments (#) and empty lines.
 Supports quoted values (single and double quotes).
 
-Imports to project scope by default. Use --global to import to global scope.
+Imports to project scope by default.
+Use --global to import to global scope.
 
 Examples:
   alex import .env                    # Import to project scope
@@ -74,10 +75,6 @@ Examples:
 			store, err = secrets.NewGlobalStore(passphrase)
 			scope = "global"
 		} else {
-			// Ensure .gitignore has .alex/
-			if err := secrets.EnsureGitignore(); err != nil {
-				exitWithError("updating .gitignore", err)
-			}
 			store, err = secrets.NewProjectStore(passphrase)
 			scope = "project"
 		}

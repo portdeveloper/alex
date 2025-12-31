@@ -26,7 +26,7 @@ var setCmd = &cobra.Command{
 If VALUE is not provided, you will be prompted to enter it (useful for
 sensitive values you don't want in shell history).
 
-Secrets are stored in the current directory's .alex/ folder by default.
+Secrets are stored per-project in ~/.alex/projects/ (auto-detected from git root).
 Use --global to store in ~/.alex/ for secrets shared across all projects.
 
 Examples:
@@ -71,10 +71,6 @@ Examples:
 			store, err = secrets.NewGlobalStore(passphrase)
 			scope = "global"
 		} else {
-			// Ensure .gitignore has .alex/
-			if err := secrets.EnsureGitignore(); err != nil {
-				exitWithError("updating .gitignore", err)
-			}
 			store, err = secrets.NewProjectStore(passphrase)
 			scope = "project"
 		}

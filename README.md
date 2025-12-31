@@ -61,7 +61,7 @@ cd alex && go build -o alex . && sudo mv alex /usr/local/bin/
 ### Store a secret
 
 ```bash
-# Secrets are stored per-project by default (./.alex/)
+# Secrets are stored per-project (identified by git remote URL)
 alex set DATABASE_URL "postgres://user:pass@host/db"
 alex set STRIPE_KEY "sk_live_xxxxx"
 
@@ -119,11 +119,16 @@ alex unset --global OPENAI_KEY    # Remove from global
 
 ### How It Works
 
-1. Secrets are stored encrypted in `.alex/secrets.enc` (project) or `~/.alex/secrets.enc` (global)
-2. Encryption uses [age](https://age-encryption.org/) with a key derived from your machine ID
-3. When you run `alex run <command>`, both project and global secrets are merged and injected
-4. Project secrets override global secrets with the same name
-5. Your shell never has the secrets - only the subprocess does
+1. Project is identified by **git remote URL** (survives moves/renames)
+2. Falls back to git root path if no remote (note: secrets won't survive moving the project)
+3. Secrets are stored encrypted in `~/.alex/projects/<hash>/secrets.enc` (project) or `~/.alex/secrets.enc` (global)
+4. **No secrets in your repo** - everything is stored in `~/.alex/`
+5. Encryption uses [age](https://age-encryption.org/) with a key derived from your machine ID
+6. When you run `alex run <command>`, both project and global secrets are merged and injected
+7. Project secrets override global secrets with the same name
+8. Your shell never has the secrets - only the subprocess does
+
+> **Tip:** For portable project secrets that survive moves, add a git remote: `git remote add origin <url>`
 
 ### Suspicious Command Detection
 
@@ -150,6 +155,7 @@ Blocked patterns include:
 | Threat | Protection |
 |--------|------------|
 | AI reads `.env` file | ✓ No `.env` file needed |
+| AI reads secrets file | ✓ Secrets stored outside repo in `~/.alex/` |
 | AI runs `echo $SECRET` | ✓ Secrets not in shell env |
 | AI runs `env` | ✓ Secrets not in shell env |
 | AI runs `alex run env` | ✓ Interactive prompt blocks |
@@ -222,11 +228,21 @@ alex import .env --prefix DB_
 # Verify your app works
 alex run npm start
 
-# Delete .env and add .alex/ to .gitignore (done automatically)
+# Delete .env - secrets are now safely stored outside the repo
 rm .env
 ```
 
 ## Troubleshooting
+
+### Secrets disappeared after moving project
+
+If your project doesn't have a git remote, secrets are tied to the project's path. Moving the project breaks this link.
+
+**Fix:** Add a git remote, then re-import your secrets:
+```bash
+git remote add origin git@github.com:you/project.git
+alex import .env
+```
 
 ### "secret not found" error
 

@@ -17,7 +17,8 @@ var unsetCmd = &cobra.Command{
 	Short: "Remove a secret",
 	Long: `Remove a stored secret.
 
-Removes from project scope by default. Use --global to remove from global scope.
+Removes from project scope by default.
+Use --global to remove from global scope.
 
 Examples:
   alex unset DATABASE_URL

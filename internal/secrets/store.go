@@ -1,10 +1,12 @@
 package secrets
 
 import (
-	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -14,6 +16,7 @@ const (
 	alexDir     = ".alex"
 	secretsFile = "secrets.enc"
 	configFile  = "config.json"
+	projectsDir = "projects"
 )
 
 // Secret represents a stored secret with metadata
@@ -49,13 +52,17 @@ func NewGlobalStore(passphrase string) (*Store, error) {
 	return NewStoreAt(passphrase, filepath.Join(homeDir, alexDir))
 }
 
-// NewProjectStore creates a store at ./.alex/ in the current directory
+// NewProjectStore creates a store at ~/.alex/projects/<hash>/ based on project root
 func NewProjectStore(passphrase string) (*Store, error) {
-	cwd, err := os.Getwd()
+	projectID := GetProjectID()
+
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	return NewStoreAt(passphrase, filepath.Join(cwd, alexDir))
+
+	projectPath := filepath.Join(homeDir, alexDir, projectsDir, projectID)
+	return NewStoreAt(passphrase, projectPath)
 }
 
 // NewStoreAt creates a store at a specific path
@@ -78,15 +85,64 @@ func NewStoreAt(passphrase string, basePath string) (*Store, error) {
 	return store, nil
 }
 
-// ProjectStoreExists checks if a project store exists in the current directory
+// ProjectStoreExists checks if project secrets exist for the current directory
 func ProjectStoreExists() bool {
-	cwd, err := os.Getwd()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return false
 	}
-	secretsPath := filepath.Join(cwd, alexDir, secretsFile)
-	_, err = os.Stat(secretsPath)
+	projectPath := filepath.Join(homeDir, alexDir, projectsDir, GetProjectID(), secretsFile)
+	_, err = os.Stat(projectPath)
 	return err == nil
+}
+
+// GetProjectID returns a unique identifier for the current project.
+// Uses git remote URL if available (stable across moves), otherwise uses path.
+// Returns a short hash to use as directory name.
+func GetProjectID() string {
+	identifier := getProjectIdentifier()
+	hash := sha256.Sum256([]byte(identifier))
+	// Use first 12 chars of hex hash (like git short hashes)
+	return hex.EncodeToString(hash[:])[:12]
+}
+
+// GetProjectRoot returns the root directory of the current project
+func GetProjectRoot() string {
+	return getGitRoot()
+}
+
+// getProjectIdentifier returns a stable identifier for the project.
+// Prefers git remote URL (survives moves), falls back to git root path.
+func getProjectIdentifier() string {
+	// Try git remote origin URL first (most stable - survives moves)
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	output, err := cmd.Output()
+	if err == nil {
+		return strings.TrimSpace(string(output))
+	}
+
+	// Fall back to git root path
+	root := getGitRoot()
+	if root != "" {
+		return root
+	}
+
+	// Last resort: current directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "."
+	}
+	return cwd
+}
+
+// getGitRoot returns the git repository root, or empty string if not in a git repo
+func getGitRoot() string {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	output, err := cmd.Output()
+	if err == nil {
+		return strings.TrimSpace(string(output))
+	}
+	return ""
 }
 
 // GetGlobalDir returns the path to the global alex directory
@@ -103,48 +159,6 @@ func GetAlexDir() (string, error) {
 	return GetGlobalDir()
 }
 
-// EnsureGitignore adds .alex/ to .gitignore if in a git repo
-func EnsureGitignore() error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	// Check if we're in a git repo
-	gitDir := filepath.Join(cwd, ".git")
-	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		return nil // Not a git repo, nothing to do
-	}
-
-	gitignorePath := filepath.Join(cwd, ".gitignore")
-
-	// Check if .gitignore exists and already has .alex/
-	if file, err := os.Open(gitignorePath); err == nil {
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == ".alex/" || line == ".alex" {
-				return nil // Already ignored
-			}
-		}
-	}
-
-	// Append .alex/ to .gitignore
-	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	// Add newline if file doesn't end with one
-	stat, _ := f.Stat()
-	if stat.Size() > 0 {
-		f.WriteString("\n")
-	}
-	_, err = f.WriteString(".alex/\n")
-	return err
-}
 
 // secretsFilePath returns the full path to the secrets file
 func (s *Store) secretsFilePath() string {
