@@ -16,6 +16,8 @@ var listCmd = &cobra.Command{
 	Short: "List stored secrets (names only)",
 	Long: `List all stored secrets. Only shows names, not values.
 
+Shows both global (~/.alex/) and project (./.alex/) secrets if they exist.
+
 Example:
   alex list`,
 	Args: cobra.NoArgs,
@@ -25,33 +27,66 @@ Example:
 			exitWithError("getting passphrase", err)
 		}
 
-		store, err := secrets.NewStore(passphrase)
+		// Load global store
+		globalStore, err := secrets.NewGlobalStore(passphrase)
 		if err != nil {
-			exitWithError("opening secret store", err)
+			exitWithError("opening global secret store", err)
+		}
+		globalSecrets := globalStore.List()
+
+		// Load project store if it exists
+		var projectSecrets map[string]secrets.Secret
+		if secrets.ProjectStoreExists() {
+			projectStore, err := secrets.NewProjectStore(passphrase)
+			if err != nil {
+				exitWithError("opening project secret store", err)
+			}
+			projectSecrets = projectStore.List()
 		}
 
-		secretList := store.List()
-		if len(secretList) == 0 {
+		totalCount := len(globalSecrets) + len(projectSecrets)
+		if totalCount == 0 {
 			fmt.Println("No secrets stored. Use 'alex set KEY VALUE' to add one.")
 			return
 		}
 
-		// Sort keys for consistent output
-		keys := make([]string, 0, len(secretList))
-		for k := range secretList {
-			keys = append(keys, k)
+		// Print global secrets
+		if len(globalSecrets) > 0 {
+			fmt.Println("GLOBAL:")
+			printSecretList(globalSecrets)
 		}
-		sort.Strings(keys)
 
-		fmt.Printf("%-30s %s\n", "NAME", "UPDATED")
-		fmt.Printf("%-30s %s\n", "----", "-------")
-		for _, key := range keys {
-			secret := secretList[key]
-			age := formatTimeAgo(secret.UpdatedAt)
-			fmt.Printf("%-30s %s\n", key, age)
+		// Print project secrets
+		if len(projectSecrets) > 0 {
+			if len(globalSecrets) > 0 {
+				fmt.Println()
+			}
+			fmt.Println("PROJECT:")
+			printSecretList(projectSecrets)
 		}
-		fmt.Printf("\n%d secret(s) stored\n", len(keys))
+
+		fmt.Printf("\n%d secret(s) stored", totalCount)
+		if len(globalSecrets) > 0 && len(projectSecrets) > 0 {
+			fmt.Printf(" (%d global, %d project)", len(globalSecrets), len(projectSecrets))
+		}
+		fmt.Println()
 	},
+}
+
+func printSecretList(secretList map[string]secrets.Secret) {
+	keys := make([]string, 0, len(secretList))
+	for k := range secretList {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	fmt.Printf("  %-28s %s\n", "NAME", "UPDATED")
+	fmt.Printf("  %-28s %s\n", "----", "-------")
+	for _, key := range keys {
+		secret := secretList[key]
+		age := formatTimeAgo(secret.UpdatedAt)
+		fmt.Printf("  %-28s %s\n", key, age)
+	}
 }
 
 func init() {

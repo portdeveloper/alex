@@ -1,10 +1,12 @@
 package secrets
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -33,20 +35,37 @@ type Config struct {
 	UsePassphrase bool `json:"use_passphrase"`
 }
 
-// NewStore creates a new secret store
+// NewStore creates a new global secret store (backwards compatible)
 func NewStore(passphrase string) (*Store, error) {
+	return NewGlobalStore(passphrase)
+}
+
+// NewGlobalStore creates a store at ~/.alex/
+func NewGlobalStore(passphrase string) (*Store, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
+	return NewStoreAt(passphrase, filepath.Join(homeDir, alexDir))
+}
 
-	alexPath := filepath.Join(homeDir, alexDir)
-	if err := os.MkdirAll(alexPath, 0700); err != nil {
+// NewProjectStore creates a store at ./.alex/ in the current directory
+func NewProjectStore(passphrase string) (*Store, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	return NewStoreAt(passphrase, filepath.Join(cwd, alexDir))
+}
+
+// NewStoreAt creates a store at a specific path
+func NewStoreAt(passphrase string, basePath string) (*Store, error) {
+	if err := os.MkdirAll(basePath, 0700); err != nil {
 		return nil, err
 	}
 
 	store := &Store{
-		path:       alexPath,
+		path:       basePath,
 		passphrase: passphrase,
 		secrets:    make(map[string]Secret),
 	}
@@ -59,13 +78,72 @@ func NewStore(passphrase string) (*Store, error) {
 	return store, nil
 }
 
-// GetAlexDir returns the path to the alex config directory
-func GetAlexDir() (string, error) {
+// ProjectStoreExists checks if a project store exists in the current directory
+func ProjectStoreExists() bool {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	secretsPath := filepath.Join(cwd, alexDir, secretsFile)
+	_, err = os.Stat(secretsPath)
+	return err == nil
+}
+
+// GetGlobalDir returns the path to the global alex directory
+func GetGlobalDir() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 	return filepath.Join(homeDir, alexDir), nil
+}
+
+// GetAlexDir is an alias for GetGlobalDir (backwards compatible)
+func GetAlexDir() (string, error) {
+	return GetGlobalDir()
+}
+
+// EnsureGitignore adds .alex/ to .gitignore if in a git repo
+func EnsureGitignore() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	// Check if we're in a git repo
+	gitDir := filepath.Join(cwd, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return nil // Not a git repo, nothing to do
+	}
+
+	gitignorePath := filepath.Join(cwd, ".gitignore")
+
+	// Check if .gitignore exists and already has .alex/
+	if file, err := os.Open(gitignorePath); err == nil {
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == ".alex/" || line == ".alex" {
+				return nil // Already ignored
+			}
+		}
+	}
+
+	// Append .alex/ to .gitignore
+	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	// Add newline if file doesn't end with one
+	stat, _ := f.Stat()
+	if stat.Size() > 0 {
+		f.WriteString("\n")
+	}
+	_, err = f.WriteString(".alex/\n")
+	return err
 }
 
 // secretsFilePath returns the full path to the secrets file

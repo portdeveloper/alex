@@ -57,14 +57,43 @@ Examples:
 			exitWithError("getting passphrase", err)
 		}
 
-		store, err := secrets.NewStore(passphrase)
+		// Load global secrets
+		globalStore, err := secrets.NewGlobalStore(passphrase)
 		if err != nil {
-			exitWithError("opening secret store", err)
+			exitWithError("opening global secret store", err)
+		}
+		globalSecrets := globalStore.GetAll()
+
+		// Load project secrets if they exist
+		var projectSecrets map[string]string
+		if secrets.ProjectStoreExists() {
+			projectStore, err := secrets.NewProjectStore(passphrase)
+			if err != nil {
+				exitWithError("opening project secret store", err)
+			}
+			projectSecrets = projectStore.GetAll()
 		}
 
-		secretMap := store.GetAll()
+		// Merge secrets (project overrides global)
+		secretMap := make(map[string]string)
+		for k, v := range globalSecrets {
+			secretMap[k] = v
+		}
+		for k, v := range projectSecrets {
+			secretMap[k] = v
+		}
+
 		if len(secretMap) == 0 {
 			fmt.Fprintln(os.Stderr, "Note: No secrets stored. Running command without injected secrets.")
+		} else {
+			// Print summary
+			globalCount := len(globalSecrets)
+			projectCount := len(projectSecrets)
+			if projectCount > 0 {
+				fmt.Fprintf(os.Stderr, "Using %d global, %d project secret(s)\n", globalCount, projectCount)
+			} else {
+				fmt.Fprintf(os.Stderr, "Using %d global secret(s)\n", globalCount)
+			}
 		}
 
 		// Run replaces the current process, so this won't return on success

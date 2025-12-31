@@ -15,6 +15,7 @@ import (
 var (
 	setPassphrase bool
 	setHidden     bool
+	setProject    bool
 )
 
 var setCmd = &cobra.Command{
@@ -25,10 +26,14 @@ var setCmd = &cobra.Command{
 If VALUE is not provided, you will be prompted to enter it (useful for
 sensitive values you don't want in shell history).
 
+Use --project to store the secret in the current directory's .alex/ folder
+instead of the global ~/.alex/ folder. Project secrets override global secrets.
+
 Examples:
   alex set DATABASE_URL "postgres://user:pass@host/db"
-  alex set STRIPE_KEY    # Will prompt for value
-  alex set --hidden API_KEY    # Hide input while typing`,
+  alex set STRIPE_KEY                    # Will prompt for value
+  alex set --hidden API_KEY              # Hide input while typing
+  alex set --project DATABASE_URL "..."  # Store in project scope`,
 	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
@@ -59,7 +64,20 @@ Examples:
 			exitWithError("getting passphrase", err)
 		}
 
-		store, err := secrets.NewStore(passphrase)
+		var store *secrets.Store
+		var scope string
+
+		if setProject {
+			// Ensure .gitignore has .alex/
+			if err := secrets.EnsureGitignore(); err != nil {
+				exitWithError("updating .gitignore", err)
+			}
+			store, err = secrets.NewProjectStore(passphrase)
+			scope = "project"
+		} else {
+			store, err = secrets.NewGlobalStore(passphrase)
+			scope = "global"
+		}
 		if err != nil {
 			exitWithError("opening secret store", err)
 		}
@@ -68,7 +86,7 @@ Examples:
 			exitWithError("saving secret", err)
 		}
 
-		fmt.Printf("✓ Secret '%s' saved\n", key)
+		fmt.Printf("✓ Secret '%s' saved (%s)\n", key, scope)
 	},
 }
 
@@ -76,6 +94,7 @@ func init() {
 	rootCmd.AddCommand(setCmd)
 	setCmd.Flags().BoolVar(&setPassphrase, "passphrase", false, "Use a passphrase instead of machine ID")
 	setCmd.Flags().BoolVar(&setHidden, "hidden", false, "Hide input when prompting for value")
+	setCmd.Flags().BoolVarP(&setProject, "project", "p", false, "Store in project scope (./.alex/) instead of global")
 }
 
 // readInput reads a line from stdin

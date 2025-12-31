@@ -13,6 +13,7 @@ import (
 var (
 	importPassphrase bool
 	importPrefix     string
+	importProject    bool
 )
 
 var importCmd = &cobra.Command{
@@ -23,10 +24,12 @@ var importCmd = &cobra.Command{
 Parses KEY=VALUE pairs from the file, skipping comments (#) and empty lines.
 Supports quoted values (single and double quotes).
 
+Use --project to import into the current directory's project scope.
+
 Examples:
-  alex import .env                    # Import all secrets
-  alex import .env --prefix DB_       # Only import vars starting with DB_
-  alex import config/.env.local       # Import from specific path`,
+  alex import .env                    # Import all secrets (global)
+  alex import .env --project          # Import into project scope
+  alex import .env --prefix DB_       # Only import vars starting with DB_`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		filePath := args[0]
@@ -64,7 +67,20 @@ Examples:
 			exitWithError("getting passphrase", err)
 		}
 
-		store, err := secrets.NewStore(passphrase)
+		var store *secrets.Store
+		var scope string
+
+		if importProject {
+			// Ensure .gitignore has .alex/
+			if err := secrets.EnsureGitignore(); err != nil {
+				exitWithError("updating .gitignore", err)
+			}
+			store, err = secrets.NewProjectStore(passphrase)
+			scope = "project"
+		} else {
+			store, err = secrets.NewGlobalStore(passphrase)
+			scope = "global"
+		}
 		if err != nil {
 			exitWithError("opening secret store", err)
 		}
@@ -85,11 +101,11 @@ Examples:
 
 		// Report results
 		if imported > 0 && updated > 0 {
-			fmt.Printf("✓ Imported %d new, updated %d existing secrets\n", imported, updated)
+			fmt.Printf("✓ Imported %d new, updated %d existing secrets (%s)\n", imported, updated, scope)
 		} else if imported > 0 {
-			fmt.Printf("✓ Imported %d secrets\n", imported)
+			fmt.Printf("✓ Imported %d secrets (%s)\n", imported, scope)
 		} else {
-			fmt.Printf("✓ Updated %d secrets\n", updated)
+			fmt.Printf("✓ Updated %d secrets (%s)\n", updated, scope)
 		}
 	},
 }
@@ -98,6 +114,7 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Flags().BoolVar(&importPassphrase, "passphrase", false, "Use a passphrase instead of machine ID")
 	importCmd.Flags().StringVar(&importPrefix, "prefix", "", "Only import variables with this prefix")
+	importCmd.Flags().BoolVarP(&importProject, "project", "p", false, "Import into project scope (./.alex/) instead of global")
 }
 
 // parseEnvFile reads a .env file and returns key-value pairs
