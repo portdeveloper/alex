@@ -86,6 +86,17 @@ func NewStoreAt(passphrase string, basePath string) (*Store, error) {
 	return store, nil
 }
 
+// GlobalStoreExists checks if global secrets exist
+func GlobalStoreExists() bool {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	globalPath := filepath.Join(homeDir, alexDir, secretsFile)
+	_, err = os.Stat(globalPath)
+	return err == nil
+}
+
 // ProjectStoreExists checks if project secrets exist for the current directory.
 // Returns (exists, error) where error indicates a problem checking (not just missing file).
 func ProjectStoreExists() (bool, error) {

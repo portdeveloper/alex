@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/portdeveloper/alex/internal/secrets"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +27,15 @@ Examples:
   alex list
   alex run npm start
   alex run pytest`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// Check if user has any secrets stored
+		if !hasAnySecrets() {
+			printQuickStart()
+			return
+		}
+		// Otherwise show default help
+		cmd.Help()
+	},
 }
 
 func Execute() error {
@@ -49,4 +59,36 @@ func exitWithError(msg string, err error) {
 // isValidKey checks if a key is a valid environment variable name
 func isValidKey(key string) bool {
 	return validKeyPattern.MatchString(key)
+}
+
+// hasAnySecrets checks if user has any secrets stored (global or project)
+func hasAnySecrets() bool {
+	// Check global secrets
+	if secrets.GlobalStoreExists() {
+		return true
+	}
+	// Check project secrets
+	exists, _ := secrets.ProjectStoreExists()
+	return exists
+}
+
+// printQuickStart shows a helpful guide for new users
+func printQuickStart() {
+	fmt.Println(`alex - Keep secrets out of AI agent scope
+
+No secrets stored yet. Here's how to get started:
+
+  1. Store a secret:
+     alex set DATABASE_URL "postgres://user:pass@host/db"
+
+  2. Run a command with secrets injected:
+     alex run npm start
+
+  3. List your secrets:
+     alex list
+
+Your secrets are encrypted and stored separately from your shell
+environment, keeping them invisible to AI coding assistants.
+
+Run 'alex --help' for all commands.`)
 }
