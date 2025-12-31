@@ -47,20 +47,36 @@ trap "rm -rf $TMP_DIR" EXIT
 # Download and extract
 curl -fsSL "$URL" | tar -xz -C "$TMP_DIR"
 
-# Install
-INSTALL_DIR="/usr/local/bin"
-if [ -w "$INSTALL_DIR" ]; then
-  mv "$TMP_DIR/$BINARY" "$INSTALL_DIR/"
-else
-  echo ""
-  echo "Installing to $INSTALL_DIR requires admin privileges."
-  echo "Enter your password to continue (or Ctrl+C to cancel):"
-  sudo mv "$TMP_DIR/$BINARY" "$INSTALL_DIR/"
-fi
+# Install to ~/.local/bin
+INSTALL_DIR="$HOME/.local/bin"
+mkdir -p "$INSTALL_DIR"
+mv "$TMP_DIR/$BINARY" "$INSTALL_DIR/"
 
 echo ""
 echo "alex installed successfully!"
 echo ""
+
+# Check if INSTALL_DIR is in PATH
+case ":$PATH:" in
+  *":$INSTALL_DIR:"*)
+    IN_PATH=true
+    ;;
+  *)
+    IN_PATH=false
+    ;;
+esac
+
+if [ "$IN_PATH" = false ]; then
+  echo "Add alex to your PATH by running:"
+  echo ""
+  if [ -n "$ZSH_VERSION" ] || [ -f "$HOME/.zshrc" ]; then
+    echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc && source ~/.zshrc"
+  else
+    echo "  echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc && source ~/.bashrc"
+  fi
+  echo ""
+fi
+
 echo "Get started:"
 echo "  alex set MY_SECRET \"secret-value\""
 echo "  alex list"
