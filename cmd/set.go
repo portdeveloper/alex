@@ -37,6 +37,11 @@ Examples:
 	Args: cobra.RangeArgs(1, 2),
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
+
+		if !isValidKey(key) {
+			exitWithError("invalid key name - must start with letter or underscore, contain only letters, digits, and underscores", nil)
+		}
+
 		var value string
 
 		if len(args) == 2 {
@@ -116,9 +121,22 @@ func readHiddenInput(prompt string) (string, error) {
 }
 
 // getPassphrase returns the passphrase to use for encryption
+// Prints a warning if using weak machine ID fallback
 func getPassphrase(usePassphrase bool) (string, error) {
 	if usePassphrase {
-		return readHiddenInput("Enter passphrase: ")
+		passphrase, err := readHiddenInput("Enter passphrase: ")
+		return passphrase, err
 	}
-	return secrets.DerivePassphrase("")
+
+	result, err := secrets.DerivePassphrase("")
+	if err != nil {
+		return "", err
+	}
+
+	if result.UsedFallback {
+		fmt.Fprintln(os.Stderr, "Warning: using hostname+username as machine ID (less secure)")
+		fmt.Fprintln(os.Stderr, "         consider using --passphrase for stronger security")
+	}
+
+	return result.Passphrase, nil
 }

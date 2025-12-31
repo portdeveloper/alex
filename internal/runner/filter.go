@@ -18,8 +18,8 @@ var suspiciousPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`^bash\s+-c`),
 	regexp.MustCompile(`^zsh\s+-c`),
 
-	// Variable expansion patterns
-	regexp.MustCompile(`\$\{?[A-Z_][A-Z0-9_]*\}?`),
+	// Variable expansion patterns (both uppercase and lowercase)
+	regexp.MustCompile(`\$\{?[A-Za-z_][A-Za-z0-9_]*\}?`),
 
 	// Language-specific env access
 	regexp.MustCompile(`process\.env`),

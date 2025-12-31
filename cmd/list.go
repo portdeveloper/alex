@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -37,7 +38,10 @@ Example:
 
 		// Load project store if it exists
 		var projectSecrets map[string]secrets.Secret
-		if secrets.ProjectStoreExists() {
+		projectExists, projectErr := secrets.ProjectStoreExists()
+		if projectErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", projectErr)
+		} else if projectExists {
 			projectStore, err := secrets.NewProjectStore(passphrase)
 			if err != nil {
 				exitWithError("opening project secret store", err)

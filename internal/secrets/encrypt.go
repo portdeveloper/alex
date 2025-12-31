@@ -2,10 +2,16 @@ package secrets
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"io"
+	"strings"
 
 	"filippo.io/age"
 )
+
+// ErrWrongPassphrase indicates the passphrase was incorrect
+var ErrWrongPassphrase = errors.New("wrong passphrase or corrupted secrets file")
 
 // encrypt encrypts data using age with a passphrase
 func encrypt(data []byte, passphrase string) ([]byte, error) {
@@ -35,13 +41,29 @@ func encrypt(data []byte, passphrase string) ([]byte, error) {
 func decrypt(data []byte, passphrase string) ([]byte, error) {
 	identity, err := age.NewScryptIdentity(passphrase)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid passphrase format: %w", err)
 	}
 
 	reader, err := age.Decrypt(bytes.NewReader(data), identity)
 	if err != nil {
-		return nil, err
+		// age returns generic errors, make them more user-friendly
+		errStr := err.Error()
+		if strings.Contains(errStr, "no identity matched") ||
+			strings.Contains(errStr, "incorrect passphrase") ||
+			strings.Contains(errStr, "failed to decrypt") {
+			return nil, ErrWrongPassphrase
+		}
+		if strings.Contains(errStr, "unknown format") ||
+			strings.Contains(errStr, "header") {
+			return nil, fmt.Errorf("corrupted secrets file (not a valid encrypted file): %w", err)
+		}
+		return nil, fmt.Errorf("decryption failed: %w", err)
 	}
 
-	return io.ReadAll(reader)
+	result, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read decrypted data: %w", err)
+	}
+
+	return result, nil
 }

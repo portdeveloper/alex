@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/portdeveloper/alex/internal/secrets"
 	"github.com/spf13/cobra"
@@ -10,6 +11,7 @@ import (
 var (
 	unsetPassphrase bool
 	unsetGlobal     bool
+	unsetForce      bool
 )
 
 var unsetCmd = &cobra.Command{
@@ -22,7 +24,8 @@ Use --global to remove from global scope.
 
 Examples:
   alex unset DATABASE_URL
-  alex unset --global OPENAI_KEY  # Remove from global scope`,
+  alex unset --global OPENAI_KEY  # Remove from global scope
+  alex unset -f DATABASE_URL      # Skip confirmation`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		key := args[0]
@@ -46,6 +49,20 @@ Examples:
 			exitWithError("opening secret store", err)
 		}
 
+		// Verify secret exists before prompting
+		if _, exists := store.Get(key); !exists {
+			exitWithError(fmt.Sprintf("secret '%s' not found in %s scope", key, scope), nil)
+		}
+
+		// Confirm deletion unless --force is used
+		if !unsetForce {
+			fmt.Fprintf(os.Stderr, "Remove secret '%s' from %s scope?\n", key, scope)
+			if !confirmAction("Confirm") {
+				fmt.Println("Cancelled.")
+				os.Exit(0)
+			}
+		}
+
 		if err := store.Delete(key); err != nil {
 			exitWithError(fmt.Sprintf("removing secret '%s'", key), err)
 		}
@@ -58,4 +75,5 @@ func init() {
 	rootCmd.AddCommand(unsetCmd)
 	unsetCmd.Flags().BoolVar(&unsetPassphrase, "passphrase", false, "Use a passphrase instead of machine ID")
 	unsetCmd.Flags().BoolVarP(&unsetGlobal, "global", "g", false, "Remove from global scope (~/.alex/) instead of project")
+	unsetCmd.Flags().BoolVarP(&unsetForce, "force", "f", false, "Skip confirmation prompt")
 }

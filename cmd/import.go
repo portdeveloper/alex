@@ -36,11 +36,20 @@ Examples:
 		filePath := args[0]
 
 		// Parse the .env file
-		envVars, err := parseEnvFile(filePath)
+		parsed, err := parseEnvFile(filePath)
 		if err != nil {
 			exitWithError("parsing env file", err)
 		}
 
+		// Warn about skipped lines
+		if len(parsed.skipped) > 0 {
+			fmt.Fprintf(os.Stderr, "Warning: skipped %d line(s):\n", len(parsed.skipped))
+			for _, msg := range parsed.skipped {
+				fmt.Fprintf(os.Stderr, "  - %s\n", msg)
+			}
+		}
+
+		envVars := parsed.vars
 		if len(envVars) == 0 {
 			fmt.Println("No secrets found in file")
 			return
@@ -114,18 +123,29 @@ func init() {
 	importCmd.Flags().BoolVarP(&importGlobal, "global", "g", false, "Import into global scope (~/.alex/) instead of project")
 }
 
+// parseResult holds parsed env vars and any skipped entries
+type parseResult struct {
+	vars    map[string]string
+	skipped []string
+}
+
 // parseEnvFile reads a .env file and returns key-value pairs
-func parseEnvFile(path string) (map[string]string, error) {
+func parseEnvFile(path string) (*parseResult, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	result := make(map[string]string)
+	result := &parseResult{
+		vars:    make(map[string]string),
+		skipped: []string{},
+	}
 	scanner := bufio.NewScanner(file)
+	lineNum := 0
 
 	for scanner.Scan() {
+		lineNum++
 		line := strings.TrimSpace(scanner.Text())
 
 		// Skip empty lines and comments
@@ -136,6 +156,7 @@ func parseEnvFile(path string) (map[string]string, error) {
 		// Find the first = sign
 		idx := strings.Index(line, "=")
 		if idx == -1 {
+			result.skipped = append(result.skipped, fmt.Sprintf("line %d: no '=' found", lineNum))
 			continue
 		}
 
@@ -144,13 +165,24 @@ func parseEnvFile(path string) (map[string]string, error) {
 
 		// Skip if key is empty
 		if key == "" {
+			result.skipped = append(result.skipped, fmt.Sprintf("line %d: empty key", lineNum))
 			continue
 		}
 
-		// Remove surrounding quotes from value
-		value = unquote(value)
+		// Validate key format
+		if !isValidKey(key) {
+			result.skipped = append(result.skipped, fmt.Sprintf("line %d: invalid key '%s'", lineNum, key))
+			continue
+		}
 
-		result[key] = value
+		// Skip empty values
+		value = unquote(value)
+		if value == "" {
+			result.skipped = append(result.skipped, fmt.Sprintf("line %d: empty value for '%s'", lineNum, key))
+			continue
+		}
+
+		result.vars[key] = value
 	}
 
 	if err := scanner.Err(); err != nil {

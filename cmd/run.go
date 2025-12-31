@@ -69,7 +69,10 @@ Examples:
 
 		// Load project secrets if they exist
 		var projectSecrets map[string]string
-		if secrets.ProjectStoreExists() {
+		projectExists, projectErr := secrets.ProjectStoreExists()
+		if projectErr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: %v\n", projectErr)
+		} else if projectExists {
 			projectStore, err := secrets.NewProjectStore(passphrase)
 			if err != nil {
 				exitWithError("opening project secret store", err)

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -85,15 +86,23 @@ func NewStoreAt(passphrase string, basePath string) (*Store, error) {
 	return store, nil
 }
 
-// ProjectStoreExists checks if project secrets exist for the current directory
-func ProjectStoreExists() bool {
+// ProjectStoreExists checks if project secrets exist for the current directory.
+// Returns (exists, error) where error indicates a problem checking (not just missing file).
+func ProjectStoreExists() (bool, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return false
+		return false, fmt.Errorf("cannot get home directory: %w", err)
 	}
 	projectPath := filepath.Join(homeDir, alexDir, projectsDir, GetProjectID(), secretsFile)
 	_, err = os.Stat(projectPath)
-	return err == nil
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	// Permission error or other issue
+	return false, fmt.Errorf("cannot access project secrets: %w", err)
 }
 
 // GetProjectID returns a unique identifier for the current project.
@@ -177,7 +186,10 @@ func (s *Store) load() error {
 		return err
 	}
 
-	return json.Unmarshal(decrypted, &s.secrets)
+	if err := json.Unmarshal(decrypted, &s.secrets); err != nil {
+		return fmt.Errorf("corrupted secrets data (invalid JSON): %w", err)
+	}
+	return nil
 }
 
 // save encrypts and writes secrets to disk

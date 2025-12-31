@@ -3,9 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"regexp"
 
 	"github.com/spf13/cobra"
 )
+
+// validKeyPattern matches valid environment variable names
+var validKeyPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 var rootCmd = &cobra.Command{
 	Use:   "alex",
@@ -40,4 +44,9 @@ func exitWithError(msg string, err error) {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", msg)
 	}
 	os.Exit(1)
+}
+
+// isValidKey checks if a key is a valid environment variable name
+func isValidKey(key string) bool {
+	return validKeyPattern.MatchString(key)
 }
