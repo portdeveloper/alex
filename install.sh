@@ -52,7 +52,9 @@ INSTALL_DIR="/usr/local/bin"
 if [ -w "$INSTALL_DIR" ]; then
   mv "$TMP_DIR/$BINARY" "$INSTALL_DIR/"
 else
-  echo "Installing to $INSTALL_DIR (requires sudo)..."
+  echo ""
+  echo "Installing to $INSTALL_DIR requires admin privileges."
+  echo "Enter your password to continue (or Ctrl+C to cancel):"
   sudo mv "$TMP_DIR/$BINARY" "$INSTALL_DIR/"
 fi
 
