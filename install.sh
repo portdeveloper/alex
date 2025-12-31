@@ -29,7 +29,7 @@ case "$ARCH" in
 esac
 
 # Use dev release (latest main) or specify VERSION=v0.1.0 to pin
-VERSION="${VERSION:-dev}"
+VERSION="${VERSION:-v0.0.0-dev}"
 
 echo "Installing alex $VERSION ($OS/$ARCH)..."
 

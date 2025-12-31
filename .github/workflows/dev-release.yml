@@ -22,15 +22,17 @@ jobs:
       - name: Run tests
         run: go test -v ./...
 
-      - name: Delete existing dev tag
+      - name: Delete existing dev release and tag
         run: |
-          git tag -d dev 2>/dev/null || true
-          git push origin :refs/tags/dev 2>/dev/null || true
+          gh release delete v0.0.0-dev --yes 2>/dev/null || true
+          git push origin :refs/tags/v0.0.0-dev 2>/dev/null || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create dev tag
         run: |
-          git tag dev
-          git push origin dev
+          git tag v0.0.0-dev
+          git push origin v0.0.0-dev
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -39,4 +41,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GORELEASER_CURRENT_TAG: dev
