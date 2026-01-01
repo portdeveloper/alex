@@ -19,7 +19,7 @@ var (
 
 var importCmd = &cobra.Command{
 	Use:   "import FILE",
-	Short: "Import secrets from a .env file",
+	Short: "Import secrets from a .env file (or .env.local)",
 	Long: `Import secrets from a .env file into alex.
 
 Parses KEY=VALUE pairs from the file, skipping comments (#) and empty lines.
