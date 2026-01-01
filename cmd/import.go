@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/portdeveloper/alex/internal/secrets"
@@ -92,26 +93,34 @@ Examples:
 		}
 
 		// Import each secret
-		var imported, updated int
+		var importedKeys, updatedKeys []string
 		for key, value := range envVars {
 			_, exists := store.Get(key)
 			if err := store.Set(key, value); err != nil {
 				exitWithError(fmt.Sprintf("saving secret '%s'", key), err)
 			}
 			if exists {
-				updated++
+				updatedKeys = append(updatedKeys, key)
 			} else {
-				imported++
+				importedKeys = append(importedKeys, key)
 			}
 		}
 
+		// Sort for consistent output
+		sort.Strings(importedKeys)
+		sort.Strings(updatedKeys)
+
 		// Report results
-		if imported > 0 && updated > 0 {
-			fmt.Printf("✓ Imported %d new, updated %d existing secrets (%s)\n", imported, updated, scope)
-		} else if imported > 0 {
-			fmt.Printf("✓ Imported %d secrets (%s)\n", imported, scope)
+		if len(importedKeys) > 0 && len(updatedKeys) > 0 {
+			fmt.Printf("✓ Imported %d new, updated %d existing secrets (%s):\n", len(importedKeys), len(updatedKeys), scope)
+			printKeyList("  new: ", importedKeys)
+			printKeyList("  updated: ", updatedKeys)
+		} else if len(importedKeys) > 0 {
+			fmt.Printf("✓ Imported %d secrets (%s):\n", len(importedKeys), scope)
+			printKeyList("  ", importedKeys)
 		} else {
-			fmt.Printf("✓ Updated %d secrets (%s)\n", updated, scope)
+			fmt.Printf("✓ Updated %d secrets (%s):\n", len(updatedKeys), scope)
+			printKeyList("  ", updatedKeys)
 		}
 	},
 }
@@ -205,4 +214,15 @@ func unquote(s string) string {
 	}
 
 	return s
+}
+
+// printKeyList prints a list of keys with a prefix, capping at maxShow
+func printKeyList(prefix string, keys []string) {
+	const maxShow = 5
+	if len(keys) <= maxShow {
+		fmt.Printf("%s%s\n", prefix, strings.Join(keys, ", "))
+	} else {
+		shown := strings.Join(keys[:maxShow], ", ")
+		fmt.Printf("%s%s, ... and %d more\n", prefix, shown, len(keys)-maxShow)
+	}
 }
