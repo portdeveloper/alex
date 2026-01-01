@@ -28,8 +28,14 @@ case "$ARCH" in
     ;;
 esac
 
-# Use dev release (latest main) or specify VERSION=v0.1.0 to pin
-VERSION="${VERSION:-v0.0.0-dev}"
+# Get latest version from GitHub API, or specify VERSION=v0.1.0 to pin
+if [ -z "$VERSION" ]; then
+  VERSION=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+  if [ -z "$VERSION" ]; then
+    echo "Failed to fetch latest version"
+    exit 1
+  fi
+fi
 
 echo "Installing alex $VERSION ($OS/$ARCH)..."
 
