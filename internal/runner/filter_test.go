@@ -69,6 +69,19 @@ func TestIsSuspicious(t *testing.T) {
 		{"awk -f script", []string{"awk", "-f", "script.awk"}, true},
 		{"contains ENVIRON", []string{"something", "ENVIRON[\"KEY\"]"}, true},
 
+		// Suspicious: package manager script execution (runs arbitrary code)
+		{"npm run", []string{"npm", "run", "build"}, true},
+		{"npm run env", []string{"npm", "run", "env"}, true},
+		{"npm start", []string{"npm", "start"}, true},
+		{"npm test", []string{"npm", "test"}, true},
+		{"npm exec", []string{"npm", "exec", "something"}, true},
+		{"yarn run", []string{"yarn", "run", "build"}, true},
+		{"yarn start", []string{"yarn", "start"}, true},
+		{"pnpm run", []string{"pnpm", "run", "build"}, true},
+		{"bun run", []string{"bun", "run", "build"}, true},
+		{"npx command", []string{"npx", "create-react-app"}, true},
+		{"bunx command", []string{"bunx", "create-react-app"}, true},
+
 		// Suspicious: commands NOT in allowlist (catches jq, custom tools, etc.)
 		{"jq not in allowlist", []string{"jq", "-n", "env.SECRET"}, true},
 		{"custom script", []string{"./my-script.sh"}, true},
@@ -82,9 +95,23 @@ func TestIsSuspicious(t *testing.T) {
 		{"echo $VAR", []string{"echo", "$VAR"}, true},
 		{"printf $VAR", []string{"printf", "%s", "$VAR"}, true},
 
+		// Safe: npm/yarn/pnpm commands that DON'T execute scripts
+		{"npm install", []string{"npm", "install"}, false},
+		{"npm i", []string{"npm", "i"}, false},
+		{"npm ci", []string{"npm", "ci"}, false},
+		{"npm audit", []string{"npm", "audit"}, false},
+		{"npm list", []string{"npm", "list"}, false},
+		{"npm outdated", []string{"npm", "outdated"}, false},
+		{"npm update", []string{"npm", "update"}, false},
+		{"npm version", []string{"npm", "version"}, false},
+		{"yarn install", []string{"yarn", "install"}, false},
+		{"yarn add", []string{"yarn", "add", "lodash"}, false},
+		{"pnpm install", []string{"pnpm", "install"}, false},
+		{"pnpm add", []string{"pnpm", "add", "lodash"}, false},
+		{"bun install", []string{"bun", "install"}, false},
+		{"bun add", []string{"bun", "add", "lodash"}, false},
+
 		// Safe commands
-		{"npm start", []string{"npm", "start"}, false},
-		{"npm run build", []string{"npm", "run", "build"}, false},
 		{"go build", []string{"go", "build"}, false},
 		{"pytest", []string{"pytest"}, false},
 		{"docker run", []string{"docker", "run", "alpine"}, false},

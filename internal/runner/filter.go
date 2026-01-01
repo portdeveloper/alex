@@ -74,6 +74,15 @@ var codeExecutionPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`\beval\s*\(`),
 	regexp.MustCompile(`\bexec\s*\(`),
 	regexp.MustCompile(`\bFunction\s*\(`),
+
+	// Package manager script execution (runs arbitrary code from package.json/etc.)
+	// These can execute ANY code defined in the project's config files
+	regexp.MustCompile(`(?i)^npm\s+(run|start|test|exec|explore)\b`),
+	regexp.MustCompile(`(?i)^yarn\s+(run|start|test|exec|dlx)\b`),
+	regexp.MustCompile(`(?i)^pnpm\s+(run|start|test|exec|dlx)\b`),
+	regexp.MustCompile(`(?i)^bun\s+(run|start|test|x)\b`),
+	regexp.MustCompile(`(?i)^npx\b`),  // npx always executes packages
+	regexp.MustCompile(`(?i)^bunx\b`), // bunx always executes packages
 }
 
 // suspiciousCommands are exact command names that are suspicious
