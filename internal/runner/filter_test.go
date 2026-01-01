@@ -50,6 +50,16 @@ func TestIsSuspicious(t *testing.T) {
 		{"contains exec", []string{"something", "exec('code')"}, true},
 		{"contains Function", []string{"something", "new Function('return process.env')"}, true},
 
+		// Suspicious: universal -e flag detection (catches ANY language)
+		{"swift -e", []string{"swift", "-e", "import Foundation; print(ProcessInfo.processInfo.environment)"}, true},
+		{"any-lang -e", []string{"somelang", "-e", "code"}, true},
+		{"any-lang -E", []string{"somelang", "-E", "code"}, true},
+		{"any-lang --eval", []string{"somelang", "--eval", "code"}, true},
+		{"any-lang --exec", []string{"somelang", "--exec", "code"}, true},
+		{"any-lang --run", []string{"somelang", "--run", "code"}, true},
+		{"any-lang --print", []string{"somelang", "--print", "code"}, true},
+		{"any-lang --command", []string{"somelang", "--command", "code"}, true},
+
 		// Suspicious: awk/gawk/mawk with inline programs (can access ENVIRON)
 		{"awk BEGIN block", []string{"awk", "BEGIN{print ENVIRON[\"SECRET\"]}"}, true},
 		{"awk single quotes", []string{"awk", "'{print $1}'"}, true},
@@ -79,6 +89,15 @@ func TestIsSuspicious(t *testing.T) {
 		{"python script.py", []string{"python", "script.py"}, false},
 		{"python3 ./app.py", []string{"python3", "./app.py"}, false},
 		{"ruby script.rb", []string{"ruby", "script.rb"}, false},
+
+		// Safe: commands with -r, -c, -p that are NOT code execution
+		{"grep -r recursive", []string{"grep", "-r", "pattern", "."}, false},
+		{"cp -r recursive", []string{"cp", "-r", "src", "dest"}, false},
+		{"rm -r recursive", []string{"rm", "-r", "folder"}, false},
+		{"grep -c count", []string{"grep", "-c", "pattern", "file"}, false},
+		{"wc -c bytes", []string{"wc", "-c", "file"}, false},
+		{"mkdir -p parents", []string{"mkdir", "-p", "a/b/c"}, false},
+		{"chmod -R recursive", []string{"chmod", "-R", "755", "dir"}, false},
 
 		// Edge cases
 		{"empty args", []string{}, false},

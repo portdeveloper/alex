@@ -36,34 +36,32 @@ var suspiciousPatterns = []*regexp.Regexp{
 // via obfuscation (e.g., process['en'+'v'], atob('ZW52'), eval, etc.)
 // These are ALWAYS suspicious regardless of the code content
 var codeExecutionPatterns = []*regexp.Regexp{
-	// Node.js inline execution
-	regexp.MustCompile(`(?i)^node\s+(-e|--eval|--print|-p)\b`),
-	regexp.MustCompile(`(?i)^node\s+.*\s+(-e|--eval|--print|-p)\b`),
+	// ========================================
+	// UNIVERSAL FLAG DETECTION (catches ALL languages)
+	// ========================================
+	// -e is almost universally "execute/eval" across languages
+	// This catches: node -e, ruby -e, perl -e, swift -e, lua -e, etc.
+	regexp.MustCompile(`\s+-e\s+`),  // -e followed by code
+	regexp.MustCompile(`\s+-e'`),    // -e'code'
+	regexp.MustCompile(`\s+-e"`),    // -e"code"
+	regexp.MustCompile(`\s+-E\s+`),  // -E (perl uses this too)
 
-	// Python inline execution
-	regexp.MustCompile(`(?i)^python[23]?\s+(-c|--command)\b`),
-	regexp.MustCompile(`(?i)^python[23]?\s+.*\s+(-c|--command)\b`),
+	// Long form flags are unambiguous
+	regexp.MustCompile(`\s+--eval\b`),
+	regexp.MustCompile(`\s+--exec\b`),
+	regexp.MustCompile(`\s+--execute\b`),
+	regexp.MustCompile(`\s+--run\b`),
+	regexp.MustCompile(`\s+--print\b`),
+	regexp.MustCompile(`\s+--command\b`),
 
-	// Ruby inline execution
-	regexp.MustCompile(`(?i)^ruby\s+(-e|--execute)\b`),
-	regexp.MustCompile(`(?i)^ruby\s+.*\s+(-e|--execute)\b`),
+	// Shell inline execution (sh -c, bash -c, etc.)
+	regexp.MustCompile(`(?i)^(sh|bash|zsh|dash|ksh|fish)\s+.*-c\s+`),
 
-	// Perl inline execution
-	regexp.MustCompile(`(?i)^perl\s+(-e|--execute|-E)\b`),
-	regexp.MustCompile(`(?i)^perl\s+.*\s+(-e|--execute|-E)\b`),
+	// Python -c (specific to python to avoid grep -c false positive)
+	regexp.MustCompile(`(?i)^python[23]?\s+.*-c\s+`),
 
-	// PHP inline execution
-	regexp.MustCompile(`(?i)^php\s+(-r|--run)\b`),
-	regexp.MustCompile(`(?i)^php\s+.*\s+(-r|--run)\b`),
-
-	// Lua inline execution
-	regexp.MustCompile(`(?i)^lua\s+-e\b`),
-
-	// Deno inline execution
-	regexp.MustCompile(`(?i)^deno\s+(eval|run\s+-e)\b`),
-
-	// Bun inline execution
-	regexp.MustCompile(`(?i)^bun\s+(-e|--eval)\b`),
+	// PHP -r (run)
+	regexp.MustCompile(`(?i)^php\s+.*-r\s+`),
 
 	// awk/gawk/mawk/nawk - can access env via ENVIRON["VAR"]
 	// Any awk with inline program is suspicious
@@ -71,10 +69,6 @@ var codeExecutionPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^[gmnl]?awk\s+"`),
 	regexp.MustCompile(`(?i)^[gmnl]?awk\s+-f`), // awk script file
 	regexp.MustCompile(`\bENVIRON\s*\[`),       // awk's ENVIRON array
-
-	// sed with -e can execute commands (limited but possible)
-	regexp.MustCompile(`(?i)^sed\s+.*-e\s*'`),
-	regexp.MustCompile(`(?i)^sed\s+.*-e\s*"`),
 
 	// Generic eval patterns in arguments
 	regexp.MustCompile(`\beval\s*\(`),
