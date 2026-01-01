@@ -69,6 +69,15 @@ func TestIsSuspicious(t *testing.T) {
 		{"awk -f script", []string{"awk", "-f", "script.awk"}, true},
 		{"contains ENVIRON", []string{"something", "ENVIRON[\"KEY\"]"}, true},
 
+		// Suspicious: commands NOT in allowlist (catches jq, custom tools, etc.)
+		{"jq not in allowlist", []string{"jq", "-n", "env.SECRET"}, true},
+		{"custom script", []string{"./my-script.sh"}, true},
+		{"unknown tool", []string{"sometool", "arg1", "arg2"}, true},
+		{"sed not in allowlist", []string{"sed", "s/a/b/g", "file"}, true},
+		{"awk not in allowlist", []string{"awk", "{print}"}, true},
+		{"perl not in allowlist", []string{"perl", "script.pl"}, true},
+		{"php not in allowlist", []string{"php", "script.php"}, true},
+
 		// Suspicious: echo/printf patterns
 		{"echo $VAR", []string{"echo", "$VAR"}, true},
 		{"printf $VAR", []string{"printf", "%s", "$VAR"}, true},

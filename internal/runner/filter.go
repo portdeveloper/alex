@@ -85,12 +85,13 @@ var suspiciousCommands = map[string]bool{
 }
 
 // IsSuspicious checks if a command might expose secrets
+// Uses an ALLOWLIST approach: only known-safe commands pass without confirmation
 func IsSuspicious(args []string) (bool, string) {
 	if len(args) == 0 {
 		return false, ""
 	}
 
-	// Check exact command name
+	// Check exact command name - these are ALWAYS blocked
 	cmd := strings.ToLower(args[0])
 	if suspiciousCommands[cmd] {
 		return true, "This command displays environment variables"
@@ -113,51 +114,236 @@ func IsSuspicious(args []string) (bool, string) {
 		}
 	}
 
+	// ALLOWLIST CHECK: If command is not in the safe list, require confirmation
+	// This catches ALL unknown commands (jq, custom scripts, etc.)
+	if !isAllowedCommand(cmd) {
+		return true, "This command is not in the allowlist and may access environment variables"
+	}
+
 	return false, ""
 }
 
-// commonSafeCommands are commands that are typically safe
-// even though they might match some patterns
-var commonSafeCommands = map[string]bool{
-	"npm":      true,
-	"yarn":     true,
-	"pnpm":     true,
-	"bun":      true,
-	"node":     true,
-	"python":   true,
-	"python3":  true,
-	"pip":      true,
-	"pip3":     true,
-	"go":       true,
-	"cargo":    true,
-	"rustc":    true,
-	"make":     true,
-	"cmake":    true,
-	"gcc":      true,
-	"clang":    true,
-	"ruby":     true,
-	"bundle":   true,
-	"gem":      true,
-	"docker":   true,
-	"kubectl":  true,
+// isAllowedCommand checks if the base command is in the allowlist
+func isAllowedCommand(cmd string) bool {
+	// Strip path to get just the command name
+	if idx := strings.LastIndex(cmd, "/"); idx >= 0 {
+		cmd = cmd[idx+1:]
+	}
+	return allowedCommands[strings.ToLower(cmd)]
+}
+
+// allowedCommands is the ALLOWLIST of commands that can run without confirmation.
+// Any command NOT in this list will require user confirmation.
+// This is the primary security mechanism - we only allow known-safe commands.
+var allowedCommands = map[string]bool{
+	// Package managers & build tools
+	"npm":       true,
+	"yarn":      true,
+	"pnpm":      true,
+	"npx":       true,
+	"bun":       true,
+	"deno":      true,
+	"pip":       true,
+	"pip3":      true,
+	"pipx":      true,
+	"poetry":    true,
+	"pdm":       true,
+	"uv":        true,
+	"go":        true,
+	"cargo":     true,
+	"rustup":    true,
+	"bundle":    true,
+	"gem":       true,
+	"composer":  true,
+	"maven":     true,
+	"mvn":       true,
+	"gradle":    true,
+	"ant":       true,
+	"make":      true,
+	"cmake":     true,
+	"ninja":     true,
+	"meson":     true,
+	"bazel":     true,
+
+	// Compilers & interpreters (without inline exec flags)
+	"node":      true,
+	"python":    true,
+	"python3":   true,
+	"ruby":      true,
+	"rustc":     true,
+	"gcc":       true,
+	"g++":       true,
+	"clang":     true,
+	"clang++":   true,
+	"javac":     true,
+	"java":      true,
+	"dotnet":    true,
+	"swift":     true, // swift without -e is safe (compiling)
+	"swiftc":    true,
+	"tsc":       true,
+	"esbuild":   true,
+	"vite":      true,
+	"webpack":   true,
+	"rollup":    true,
+	"parcel":    true,
+
+	// Version control
+	"git":       true,
+	"gh":        true,
+	"hub":       true,
+	"svn":       true,
+	"hg":        true,
+
+	// Containers & cloud
+	"docker":    true,
+	"podman":    true,
+	"kubectl":   true,
+	"helm":      true,
 	"terraform": true,
-	"git":      true,
-	"curl":     true,
-	"wget":     true,
-	"grep":     true,
-	"find":     true,
-	"ls":       true,
-	"cat":      true,
-	"less":     true,
-	"more":     true,
-	"head":     true,
-	"tail":     true,
-	"vim":      true,
-	"nvim":     true,
-	"nano":     true,
-	"code":     true,
-	"pytest":   true,
-	"jest":     true,
-	"mocha":    true,
-	"rspec":    true,
+	"pulumi":    true,
+	"aws":       true,
+	"gcloud":    true,
+	"az":        true,
+	"flyctl":    true,
+	"vercel":    true,
+	"netlify":   true,
+	"railway":   true,
+	"heroku":    true,
+
+	// File operations (safe ones)
+	"ls":        true,
+	"cat":       true,
+	"head":      true,
+	"tail":      true,
+	"less":      true,
+	"more":      true,
+	"cp":        true,
+	"mv":        true,
+	"rm":        true,
+	"mkdir":     true,
+	"rmdir":     true,
+	"touch":     true,
+	"chmod":     true,
+	"chown":     true,
+	"ln":        true,
+	"find":      true,
+	"grep":      true,
+	"rg":        true, // ripgrep
+	"fd":        true, // fd-find
+	"ag":        true, // silver searcher
+	"wc":        true,
+	"sort":      true,
+	"uniq":      true,
+	"diff":      true,
+	"patch":     true,
+	"tar":       true,
+	"zip":       true,
+	"unzip":     true,
+	"gzip":      true,
+	"gunzip":    true,
+	"bzip2":     true,
+	"xz":        true,
+
+	// Network tools
+	"curl":      true,
+	"wget":      true,
+	"ssh":       true,
+	"scp":       true,
+	"rsync":     true,
+	"ping":      true,
+	"dig":       true,
+	"nslookup":  true,
+	"nc":        true,
+	"netcat":    true,
+
+	// Editors
+	"vim":       true,
+	"nvim":      true,
+	"nano":      true,
+	"emacs":     true,
+	"code":      true,
+	"subl":      true,
+
+	// Testing frameworks
+	"pytest":    true,
+	"jest":      true,
+	"mocha":     true,
+	"vitest":    true,
+	"rspec":     true,
+	"phpunit":   true,
+	"go-test":   true,
+
+	// Linters & formatters
+	"eslint":    true,
+	"prettier":  true,
+	"black":     true,
+	"ruff":      true,
+	"mypy":      true,
+	"pylint":    true,
+	"flake8":    true,
+	"rubocop":   true,
+	"gofmt":     true,
+	"rustfmt":   true,
+	"clippy":    true,
+	"shellcheck": true,
+
+	// Shell builtins (commonly used)
+	"echo":      true,
+	"printf":    true,
+	"read":      true,
+	"test":      true,
+	"[":         true,
+
+	// Other common dev tools
+	"man":       true,
+	"which":     true,
+	"whereis":   true,
+	"file":      true,
+	"stat":      true,
+	"du":        true,
+	"df":        true,
+	"top":       true,
+	"htop":      true,
+	"ps":        true,
+	"kill":      true,
+	"pkill":     true,
+	"killall":   true,
+	"date":      true,
+	"cal":       true,
+	"bc":        true,
+	"sleep":     true,
+	"true":      true,
+	"false":     true,
+	"yes":       true,
+	"seq":       true,
+	"basename":  true,
+	"dirname":   true,
+	"realpath":  true,
+	"pwd":       true,
+	"whoami":    true,
+	"id":        true,
+	"groups":    true,
+	"uname":     true,
+	"hostname":  true,
+	"uptime":    true,
+	"free":      true,
+	"lsof":      true,
+	"strace":    true,
+	"time":      true,
+	"xargs":     true,
+	"tee":       true,
+	"cut":       true,
+	"tr":        true,
+	"rev":       true,
+	"column":    true,
+	"paste":     true,
+	"join":      true,
+	"comm":      true,
+	"cmp":       true,
+	"md5sum":    true,
+	"sha256sum": true,
+	"base64":    true,
+	"od":        true,
+	"xxd":       true,
+	"hexdump":   true,
 }
