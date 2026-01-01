@@ -21,7 +21,7 @@ var suspiciousPatterns = []*regexp.Regexp{
 	// Variable expansion patterns (both uppercase and lowercase)
 	regexp.MustCompile(`\$\{?[A-Za-z_][A-Za-z0-9_]*\}?`),
 
-	// Language-specific env access
+	// Language-specific env access (literal patterns - can be bypassed with obfuscation)
 	regexp.MustCompile(`process\.env`),
 	regexp.MustCompile(`os\.environ`),
 	regexp.MustCompile(`ENV\[`),
@@ -30,6 +30,45 @@ var suspiciousPatterns = []*regexp.Regexp{
 	// Commands that echo/print
 	regexp.MustCompile(`^echo\s+\$`),
 	regexp.MustCompile(`^printf.*\$`),
+}
+
+// codeExecutionPatterns detect inline code execution which can bypass pattern matching
+// via obfuscation (e.g., process['en'+'v'], atob('ZW52'), eval, etc.)
+// These are ALWAYS suspicious regardless of the code content
+var codeExecutionPatterns = []*regexp.Regexp{
+	// Node.js inline execution
+	regexp.MustCompile(`(?i)^node\s+(-e|--eval|--print|-p)\b`),
+	regexp.MustCompile(`(?i)^node\s+.*\s+(-e|--eval|--print|-p)\b`),
+
+	// Python inline execution
+	regexp.MustCompile(`(?i)^python[23]?\s+(-c|--command)\b`),
+	regexp.MustCompile(`(?i)^python[23]?\s+.*\s+(-c|--command)\b`),
+
+	// Ruby inline execution
+	regexp.MustCompile(`(?i)^ruby\s+(-e|--execute)\b`),
+	regexp.MustCompile(`(?i)^ruby\s+.*\s+(-e|--execute)\b`),
+
+	// Perl inline execution
+	regexp.MustCompile(`(?i)^perl\s+(-e|--execute|-E)\b`),
+	regexp.MustCompile(`(?i)^perl\s+.*\s+(-e|--execute|-E)\b`),
+
+	// PHP inline execution
+	regexp.MustCompile(`(?i)^php\s+(-r|--run)\b`),
+	regexp.MustCompile(`(?i)^php\s+.*\s+(-r|--run)\b`),
+
+	// Lua inline execution
+	regexp.MustCompile(`(?i)^lua\s+-e\b`),
+
+	// Deno inline execution
+	regexp.MustCompile(`(?i)^deno\s+(eval|run\s+-e)\b`),
+
+	// Bun inline execution
+	regexp.MustCompile(`(?i)^bun\s+(-e|--eval)\b`),
+
+	// Generic eval patterns in arguments
+	regexp.MustCompile(`\beval\s*\(`),
+	regexp.MustCompile(`\bexec\s*\(`),
+	regexp.MustCompile(`\bFunction\s*\(`),
 }
 
 // suspiciousCommands are exact command names that are suspicious
@@ -54,6 +93,15 @@ func IsSuspicious(args []string) (bool, string) {
 
 	// Check full command string against patterns
 	fullCmd := strings.Join(args, " ")
+
+	// Check for inline code execution (highest priority - these can bypass all other checks)
+	for _, pattern := range codeExecutionPatterns {
+		if pattern.MatchString(fullCmd) {
+			return true, "This command executes inline code which could access environment variables"
+		}
+	}
+
+	// Check for direct env access patterns
 	for _, pattern := range suspiciousPatterns {
 		if pattern.MatchString(fullCmd) {
 			return true, "This command may expose environment variables"
