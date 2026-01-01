@@ -28,8 +28,12 @@ Supports quoted values (single and double quotes).
 Imports to project scope by default.
 Use --global to import to global scope.
 
+After importing, consider deleting the .env file to keep secrets out of
+your repository and away from AI agents.
+
 Examples:
-  alex import .env                    # Import to project scope
+  alex import .env                    # Import from .env
+  alex import .env.local              # Import from .env.local (Next.js/React)
   alex import .env --global           # Import to global scope
   alex import .env --prefix DB_       # Only import vars starting with DB_`,
 	Args: cobra.ExactArgs(1),
@@ -122,6 +126,11 @@ Examples:
 			fmt.Printf("✓ Updated %d secrets (%s):\n", len(updatedKeys), scope)
 			printKeyList("  ", updatedKeys)
 		}
+
+		// Suggest deleting the source file
+		fmt.Printf("\nNext steps:\n")
+		fmt.Printf("  rm %s              # Delete the file to keep secrets safe\n", filePath)
+		fmt.Printf("  alex run <command>    # Run commands with secrets injected\n")
 	},
 }
 
