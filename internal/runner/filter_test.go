@@ -50,6 +50,15 @@ func TestIsSuspicious(t *testing.T) {
 		{"contains exec", []string{"something", "exec('code')"}, true},
 		{"contains Function", []string{"something", "new Function('return process.env')"}, true},
 
+		// Suspicious: awk/gawk/mawk with inline programs (can access ENVIRON)
+		{"awk BEGIN block", []string{"awk", "BEGIN{print ENVIRON[\"SECRET\"]}"}, true},
+		{"awk single quotes", []string{"awk", "'{print $1}'"}, true},
+		{"awk double quotes", []string{"awk", "\"{print $1}\""}, true},
+		{"gawk inline", []string{"gawk", "'BEGIN{print 1}'"}, true},
+		{"mawk inline", []string{"mawk", "'BEGIN{print 1}'"}, true},
+		{"awk -f script", []string{"awk", "-f", "script.awk"}, true},
+		{"contains ENVIRON", []string{"something", "ENVIRON[\"KEY\"]"}, true},
+
 		// Suspicious: echo/printf patterns
 		{"echo $VAR", []string{"echo", "$VAR"}, true},
 		{"printf $VAR", []string{"printf", "%s", "$VAR"}, true},

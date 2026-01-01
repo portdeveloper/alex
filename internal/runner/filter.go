@@ -65,6 +65,17 @@ var codeExecutionPatterns = []*regexp.Regexp{
 	// Bun inline execution
 	regexp.MustCompile(`(?i)^bun\s+(-e|--eval)\b`),
 
+	// awk/gawk/mawk/nawk - can access env via ENVIRON["VAR"]
+	// Any awk with inline program is suspicious
+	regexp.MustCompile(`(?i)^[gmnl]?awk\s+'`),
+	regexp.MustCompile(`(?i)^[gmnl]?awk\s+"`),
+	regexp.MustCompile(`(?i)^[gmnl]?awk\s+-f`), // awk script file
+	regexp.MustCompile(`\bENVIRON\s*\[`),       // awk's ENVIRON array
+
+	// sed with -e can execute commands (limited but possible)
+	regexp.MustCompile(`(?i)^sed\s+.*-e\s*'`),
+	regexp.MustCompile(`(?i)^sed\s+.*-e\s*"`),
+
 	// Generic eval patterns in arguments
 	regexp.MustCompile(`\beval\s*\(`),
 	regexp.MustCompile(`\bexec\s*\(`),
